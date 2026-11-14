@@ -1,0 +1,21 @@
+{
+  "name": "moins-style-backend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "API for the Moin's Style Studio website and admin panel: content, bookings, photos and admin accounts",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "dev": "node --watch server/index.js",
+    "start": "node server/index.js",
+    "reset-password": "node server/reset-password.js",
+    "sync-images": "node scripts/sync-images.js"
+  },
+  "dependencies": {
+    "express": "^5.3.0",
+    "multer": "^2.5.0",
+    "sharp": "^0.35.5"
+  }
+}
