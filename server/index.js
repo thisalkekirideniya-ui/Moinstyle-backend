@@ -1,5 +1,5 @@
 // Moin's Style Studio backend: the API shared by the website and the admin panel.
-// - /api/*        content, bookings, media, accounts (JSON)
+// - /api/*        content, bookings, client colour records, media, accounts (JSON)
 // - /images/u/*   photos uploaded while Cloudinary is not set up
 //
 // The website and the admin panel are separate apps (their own repos). When they run on
@@ -39,6 +39,7 @@ import { cloudinaryConfig } from './cloudinary.js'
 
 const PORT = Number(process.env.PORT) || 4000
 const BOOKINGS = file('bookings.json')
+const COLOUR_RECORDS = file('client-colours.json')
 const STATUSES = ['new', 'confirmed', 'completed', 'cancelled']
 
 const app = express()
@@ -220,6 +221,46 @@ api.patch('/bookings/:id', wrap(async (req, res) => {
 
 api.delete('/bookings/:id', wrap(async (req, res) => {
   await update(BOOKINGS, [], async (list) => ({ value: list.filter((entry) => entry.id !== req.params.id) }))
+  res.json({ ok: true })
+}))
+
+// Client colour records: each client visit with the hair colour and code used.
+const isoDate = (value) => (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim()) ? value.trim() : '')
+const colourFields = (body = {}) => ({
+  date: isoDate(body.date),
+  clientName: text(body.clientName, 120),
+  hairColour: text(body.hairColour, 120),
+  colourCode: text(body.colourCode, 60),
+  contactNumber: text(body.contactNumber, 40),
+  nextAppointment: isoDate(body.nextAppointment),
+  comments: text(body.comments, 2000),
+})
+
+api.get('/colour-records', wrap(async (req, res) => res.json(await readJSON(COLOUR_RECORDS, []))))
+
+api.post('/colour-records', wrap(async (req, res) => {
+  const fields = colourFields(req.body)
+  if (!fields.clientName) return res.status(400).json({ error: 'Please give the client’s name.' })
+  const record = { id: newId(), ...fields, createdAt: new Date().toISOString(), createdBy: req.user.username }
+  await update(COLOUR_RECORDS, [], async (list) => ({ value: [record, ...list] }))
+  res.status(201).json(record)
+}))
+
+api.put('/colour-records/:id', wrap(async (req, res) => {
+  const fields = colourFields(req.body)
+  if (!fields.clientName) return res.status(400).json({ error: 'Please give the client’s name.' })
+  const record = await update(COLOUR_RECORDS, [], async (list) => {
+    const found = list.find((entry) => entry.id === req.params.id)
+    if (!found) return { value: list, result: null }
+    const next = { ...found, ...fields, updatedAt: new Date().toISOString(), updatedBy: req.user.username }
+    return { value: list.map((entry) => (entry === found ? next : entry)), result: next }
+  })
+  if (!record) return res.status(404).json({ error: 'Record not found' })
+  res.json(record)
+}))
+
+api.delete('/colour-records/:id', wrap(async (req, res) => {
+  await update(COLOUR_RECORDS, [], async (list) => ({ value: list.filter((entry) => entry.id !== req.params.id) }))
   res.json({ ok: true })
 }))
 
